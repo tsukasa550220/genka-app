@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建設原価管理システム | AIおきなわ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#0d1117; --surface:#161b22; --surface2:#1c2330; --border:#30363d;
+    --text:#e6edf3; --text2:#8b949e;
+    --accent:#f0a22a; --accent2:#e36c0a;
+    --green:#3fb950; --red:#f85149; --blue:#58a6ff; --purple:#bc8cff;
+    --radius:8px;
+    --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans JP',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;}
+
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:10px;}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;white-space:nowrap;}
+  .logo-icon{width:30px;height:30px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .today-badge{font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--surface2);padding:4px 10px;border-radius:20px;border:1px solid var(--border);white-space:nowrap;}
+  .header-btns{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+
+  .container{max-width:1400px;margin:0 auto;padding:20px;}
+
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:24px;flex-wrap:wrap;}
+  .tab{padding:10px 16px;cursor:pointer;border-radius:var(--radius) var(--radius) 0 0;color:var(--text2);font-size:13px;font-weight:500;transition:all .15s;border:1px solid transparent;border-bottom:none;position:relative;bottom:-1px;background:transparent;}
+  .tab:hover{color:var(--text);background:var(--surface2);}
+  .tab.active{color:var(--accent);background:var(--surface);border-color:var(--border);border-bottom-color:var(--surface);}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:14px;margin-bottom:20px;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+  .kpi-card.c-green::before{background:var(--green);}
+  .kpi-card.c-red::before{background:var(--red);}
+  .kpi-card.c-blue::before{background:var(--blue);}
+  .kpi-card.c-accent::before{background:var(--accent);}
+  .kpi-card.c-purple::before{background:var(--purple);}
+  .kpi-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+  .kpi-value{font-family:var(--mono);font-size:20px;font-weight:500;line-height:1;margin-bottom:5px;}
+  .kpi-sub{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px;}
+
+  .badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:12px;font-size:11px;font-family:var(--mono);font-weight:500;}
+  .badge.green{background:rgba(63,185,80,.15);color:var(--green);}
+  .badge.red{background:rgba(248,81,73,.15);color:var(--red);}
+  .badge.yellow{background:rgba(240,162,42,.15);color:var(--accent);}
+  .badge.blue{background:rgba(88,166,255,.15);color:var(--blue);}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:18px;}
+  .panel-header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);}
+  .panel-title{font-size:13px;font-weight:700;}
+  .panel-body{padding:18px;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:8px 12px;color:var(--text2);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);}
+  td{padding:8px 12px;border-bottom:1px solid rgba(48,54,61,.5);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,.02);}
+  .num{font-family:var(--mono);text-align:right;color:var(--text);}
+  .num-neg{color:var(--red);}
+  /* 数値色は白統一（.text-green/.text-accent/.text-blueを数値に使わない） */
+  td .text-accent, td .text-green, td .text-blue{ color: var(--text); }
+
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:13px;}
+  .form-group{display:flex;flex-direction:column;gap:5px;}
+  .form-group.span2{grid-column:span 2;}
+  label{font-size:11px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.06em;}
+  input,select,textarea{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 11px;width:100%;transition:border-color .15s;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+  select option{background:var(--surface);}
+  input[type=number]{font-family:var(--mono);}
+
+  .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;font-family:var(--sans);}
+  .btn-primary{background:var(--accent);color:#000;}
+  .btn-primary:hover{background:var(--accent2);}
+  .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+  .btn-ghost:hover{color:var(--text);border-color:var(--text2);}
+  .btn-danger{background:transparent;color:var(--red);border:1px solid rgba(248,81,73,.3);}
+  .btn-danger:hover{background:rgba(248,81,73,.1);}
+  .btn-edit{background:transparent;color:var(--blue);border:1px solid rgba(88,166,255,.3);}
+  .btn-edit:hover{background:rgba(88,166,255,.1);}
+  .btn-success{background:transparent;color:var(--green);border:1px solid rgba(63,185,80,.3);}
+  .btn-success:hover{background:rgba(63,185,80,.1);}
+  .btn-sm{padding:4px 9px;font-size:12px;}
+  .btn-row{display:flex;gap:5px;}
+
+  .progress-wrap{display:flex;align-items:center;gap:8px;}
+  .progress-bar{flex:1;height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:4px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media(max-width:900px){.two-col{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+
+  .status{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:500;}
+  .status::before{content:'●';font-size:8px;}
+  .status.s-active{background:rgba(63,185,80,.15);color:var(--green);}
+  .status.s-warning{background:rgba(240,162,42,.15);color:var(--accent);}
+  .status.s-done{background:rgba(139,148,158,.1);color:var(--text2);}
+  .status.s-idle{background:rgba(139,148,158,.1);color:var(--text2);}
+
+  .alert-box{padding:11px 15px;border-radius:var(--radius);font-size:13px;border-left:3px solid;margin-bottom:10px;line-height:1.6;}
+  .alert-box.warn{background:rgba(240,162,42,.08);border-color:var(--accent);color:#e6b84a;}
+  .alert-box.danger{background:rgba(248,81,73,.08);border-color:var(--red);color:#f47a75;}
+  .alert-box.info{background:rgba(88,166,255,.08);border-color:var(--blue);color:var(--blue);}
+  .alert-box.success{background:rgba(63,185,80,.08);border-color:var(--green);color:var(--green);}
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:580px;max-width:96vw;max-height:92vh;overflow-y:auto;}
+  .modal-header{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .modal-header h3{font-size:15px;font-weight:700;}
+  .modal-body{padding:22px;}
+  .modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+
+  .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:500;background:var(--surface2);border:1px solid var(--border);color:var(--text2);}
+  .divider{height:1px;background:var(--border);margin:16px 0;}
+  .text-sm{font-size:12px;color:var(--text2);}
+  .text-mono{font-family:var(--mono);}
+  .text-green{color:var(--green);}
+  .text-red{color:var(--red);}
+  .text-accent{color:var(--accent);}
+  .text-blue{color:var(--blue);}
+
+  .page{display:none;}
+  .page.active{display:block;}
+
+  .cost-row{display:flex;align-items:center;padding:9px 0;border-bottom:1px solid rgba(48,54,61,.5);gap:10px;}
+  .cost-row:last-child{border-bottom:none;}
+  .cost-label{flex:1;font-size:13px;}
+  .cost-bar-wrap{width:110px;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+  .cost-bar{height:100%;border-radius:3px;}
+  .cost-amount{font-family:var(--mono);font-size:13px;min-width:95px;text-align:right;}
+  .cost-pct{font-family:var(--mono);font-size:11px;color:var(--text2);min-width:38px;text-align:right;}
+
+  /* 使い方 */
+  .howto-step{display:flex;gap:13px;margin-bottom:14px;}
+  .howto-num{width:27px;height:27px;background:var(--accent);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;margin-top:2px;}
+  .howto-content strong{display:block;margin-bottom:3px;}
+  .howto-content p{color:var(--text2);font-size:13px;line-height:1.7;}
+  .formula-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:13px 16px;margin:10px 0;font-family:var(--mono);font-size:13px;line-height:2.1;}
+  .formula-box .hl{color:var(--accent);font-weight:500;}
+
+  .rate-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .rate-table th{background:var(--surface2);padding:8px 12px;text-align:left;border:1px solid var(--border);font-size:12px;}
+  .rate-table td{padding:8px 12px;border:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">🏗</div>建設原価管理システム <span style="font-size:11px;color:var(--text2);font-weight:400;margin-left:4px;">v1.1</span></div>
+  <div class="header-btns">
+    <span class="today-badge" id="todayBadge"></span>
+    <button class="btn btn-success btn-sm" onclick="exportCSV()">📥 CSV出力</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportJSON()">💾 バックアップ</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()">📂 復元</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+    <button class="btn btn-primary btn-sm" onclick="openAddKoji()">＋ 工事追加</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">📊 ダッシュボード</div>
+    <div class="tab" onclick="switchTab('koji')">🏗 工事台帳</div>
+    <div class="tab" onclick="switchTab('nippo')">📝 日報入力</div>
+    <div class="tab" onclick="switchTab('zairyo')">📦 資材管理</div>
+    <div class="tab" onclick="switchTab('gaichuu')">🔧 外注管理</div>
+    <div class="tab" onclick="switchTab('howto')">📖 使い方</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <div id="sample-banner" style="display:none;margin-bottom:16px;">
+      <div class="alert-box info">💡 <strong>これはサンプルデータです。</strong>実際のデータを入力するには、右上の「＋ 工事追加」から工事を登録してください。サンプルを削除するには各行の「🗑 削除」ボタンを使ってください。</div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card c-accent"><div class="kpi-label">受注残高合計</div><div class="kpi-value" id="kpi-juchu">¥0</div><div class="kpi-sub">進行中 <span id="kpi-juchu-cnt" class="badge yellow">0件</span></div></div>
+      <div class="kpi-card c-blue"><div class="kpi-label">実行予算合計</div><div class="kpi-value" id="kpi-yosan">¥0</div><div class="kpi-sub">全工事</div></div>
+      <div class="kpi-card c-green"><div class="kpi-label">粗利（実績）</div><div class="kpi-value" id="kpi-profit">¥0</div><div class="kpi-sub"><span id="kpi-profit-rate" class="badge green">0.0%</span> 粗利率</div></div>
+      <div class="kpi-card c-red"><div class="kpi-label">原価発生額合計</div><div class="kpi-value num-neg" id="kpi-genka">¥0</div><div class="kpi-sub">労務＋資材＋外注</div></div>
+      <div class="kpi-card c-purple"><div class="kpi-label">要注意工事</div><div class="kpi-value" id="kpi-alert-cnt">0件</div><div class="kpi-sub">粗利率5%未満</div></div>
+    </div>
+    <div id="alert-area"></div>
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">📋 工事別損益サマリ（リアルタイム）</div><span class="text-sm">自動集計</span></div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>工事名</th><th>状態</th><th class="num">受注額</th><th class="num">実行予算</th><th class="num">原価発生</th><th class="num">粗利（予）</th><th style="min-width:130px;">進捗</th><th class="num">粗利率</th></tr></thead>
+          <tbody id="dashboard-table"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="panel"><div class="panel-header"><div class="panel-title">📊 原価構成（全工事合計）</div></div><div class="panel-body" id="cost-breakdown"></div></div>
+      <div class="panel"><div class="panel-header"><div class="panel-title">⚠️ 資材単価アラート</div></div><div class="panel-body" id="zairyo-alerts"></div></div>
+    </div>
+  </div>
+
+  <!-- 工事台帳 -->
+  <div id="page-koji" class="page">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+      <button class="btn btn-primary" onclick="openAddKoji()">＋ 新規工事登録</button>
+    </div>
+    <div class="panel"><div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>工事番号</th><th>工事名</th><th>発注者</th><th>工期</th><th class="num">受注額</th><th class="num">実行予算</th><th class="num">原価発生</th><th class="num">粗利率</th><th>状態</th><th>操作</th></tr></thead>
+        <tbody id="koji-table"></tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- 日報入力 -->
+  <div id="page-nippo" class="page">
+    <div class="two-col">
+      <div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">📝 日報入力</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>日付</label><input type="date" id="np-date"></div>
+              <div class="form-group"><label>工事</label><select id="np-koji"></select></div>
+              <div class="form-group"><label>作業者名</label><input type="text" id="np-worker" placeholder="山田 太郎"></div>
+              <div class="form-group"><label>職種</label>
+                <select id="np-shokushu"><option>現場監督</option><option>型枠工</option><option>鉄筋工</option><option>左官工</option><option>大工</option><option>電気工</option><option>配管工</option><option>重機オペレーター</option><option>一般作業員</option></select>
+              </div>
+              <div class="form-group"><label>勤務区分</label>
+                <select id="np-kubun"><option value="平日">平日</option><option value="法定休日">法定休日（×1.35〜1.60）</option><option value="雨天中止">雨天中止（給与なし）</option></select>
+              </div>
+              <div class="form-group"><label>時給（円）</label><input type="number" id="np-rate" min="0" step="100" placeholder="3000"></div>
+              <div class="form-group"><label>出勤時刻</label><input type="time" id="np-start" value="08:00"></div>
+              <div class="form-group"><label>退勤時刻</label><input type="time" id="np-end" value="17:00"></div>
+              <div class="form-group"><label>休憩（分）</label><input type="number" id="np-break" value="60" min="0" max="180"></div>
+              <div class="form-group"><label>作業内容</label><input type="text" id="np-work" placeholder="基礎コンクリート打設"></div>
+              <div class="form-group span2"><label>備考</label><input type="text" id="np-note"></div>
+            </div>
+            <div class="divider"></div>
+            <!-- 給与プレビュー -->
+            <div style="background:var(--surface2);border-radius:8px;padding:13px 15px;margin-bottom:13px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+                <div><div class="text-sm">実労働時間</div><div class="text-mono" id="pv-jikan" style="font-size:15px;">—</div></div>
+                <div><div class="text-sm">時間外（8h超）</div><div class="text-mono" id="pv-ot">—</div></div>
+                <div><div class="text-sm">深夜（22〜5時）</div><div class="text-mono" id="pv-night">—</div></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+                <div><div class="text-sm">所定内 ×1.00</div><div class="text-mono" style="font-size:12px;" id="pv-base">¥0</div></div>
+                <div><div class="text-sm">時間外 ×1.25</div><div class="text-mono" style="font-size:12px;" id="pv-ot-pay">¥0</div></div>
+                <div><div class="text-sm">60h超 ×1.50</div><div class="text-mono" style="font-size:12px;" id="pv-ot50">¥0</div></div>
+                <div><div class="text-sm">深夜 +0.25</div><div class="text-mono" style="font-size:12px;" id="pv-night-pay">¥0</div></div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;">
+                <span class="text-sm">本日給与合計</span>
+                <span class="text-mono" id="pv-total" style="font-size:20px;font-weight:500;">¥0</span>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="addNippo()">✓ 日報を登録する</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">📋 割増賃金 早見表（東京労働局準拠）</div></div>
+          <div class="panel-body" style="padding:0;">
+            <table class="rate-table">
+              <thead><tr><th>区分</th><th>倍率</th><th>備考</th></tr></thead>
+              <tbody>
+                <tr><td>所定内（〜8h）</td><td class="text-mono">× 1.00</td><td>基本</td></tr>
+                <tr><td>時間外（8h超〜60h）</td><td class="text-mono text-accent">× 1.25</td><td>25%以上</td></tr>
+                <tr><td>月60h超残業</td><td class="text-mono text-red">× 1.50</td><td>50%以上</td></tr>
+                <tr><td>法定休日</td><td class="text-mono text-accent">× 1.35</td><td>35%以上</td></tr>
+                <tr><td>深夜（22〜5時）</td><td class="text-mono text-blue">+ 0.25</td><td>重複加算</td></tr>
+                <tr><td>法定休日＋深夜</td><td class="text-mono text-red">× 1.60</td><td>35%+25%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">📋 日報一覧</div><span class="text-sm" id="nippo-count">0件</span></div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>日付</th><th>工事</th><th>作業者</th><th class="num">実働h</th><th class="num">労務費</th><th>操作</th></tr></thead>
+              <tbody id="nippo-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 資材管理 -->
+  <div id="page-zairyo" class="page">
+    <div class="two-col">
+      <div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">📦 資材発注登録</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>工事</label><select id="zm-koji"></select></div>
+              <div class="form-group"><label>資材名</label><input type="text" id="zm-name" placeholder="生コンクリート 21N"></div>
+              <div class="form-group"><label>単位</label>
+                <select id="zm-unit"><option>m³</option><option>t</option><option>kg</option><option>枚</option><option>本</option><option>袋</option><option>m</option><option>式</option></select>
+              </div>
+              <div class="form-group"><label>数量</label><input type="number" id="zm-qty" min="0" step="0.1" placeholder="10"></div>
+              <div class="form-group"><label>見積単価（円）</label><input type="number" id="zm-est" min="0" step="100" placeholder="15000"></div>
+              <div class="form-group"><label>発注単価（円）</label><input type="number" id="zm-act" min="0" step="100" placeholder="16000"></div>
+              <div class="form-group"><label>発注日</label><input type="date" id="zm-orderdate"></div>
+            </div>
+            <div id="zm-diff-box" style="display:none;background:var(--surface2);border-radius:6px;padding:10px 13px;margin:12px 0;">
+              <div class="text-sm">見積比差額</div>
+              <div class="text-mono" id="zm-diff-val" style="font-size:15px;"></div>
+            </div>
+            <button class="btn btn-primary" onclick="addZairyo()">資材登録</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">📦 資材台帳</div></div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>工事</th><th>資材名</th><th class="num">数量</th><th class="num">見積単価</th><th class="num">発注単価</th><th class="num">差額</th><th>発注日</th><th>操作</th></tr></thead>
+              <tbody id="zairyo-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 外注管理 -->
+  <div id="page-gaichuu" class="page">
+    <div class="two-col">
+      <div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">🔧 外注費登録</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>工事</label><select id="gm-koji"></select></div>
+              <div class="form-group"><label>業者名</label><input type="text" id="gm-company" placeholder="〇〇建設"></div>
+              <div class="form-group"><label>種別</label>
+                <select id="gm-type"><option>一人親方</option><option>専門工事業者</option><option>設備業者</option><option>材料供給業者</option><option>リース業者</option></select>
+              </div>
+              <div class="form-group"><label>作業内容</label><input type="text" id="gm-work" placeholder="鉄筋組み立て"></div>
+              <div class="form-group"><label>契約金額（円）</label><input type="number" id="gm-contract" min="0" step="1000" placeholder="500000"></div>
+              <div class="form-group"><label>支払予定日</label><input type="date" id="gm-paydate"></div>
+              <div class="form-group"><label>支払ステータス</label>
+                <select id="gm-paid"><option value="false">未払い</option><option value="true">支払済み</option></select>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <button class="btn btn-primary" onclick="addGaichuu()">外注登録</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">🔧 外注台帳</div></div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>工事</th><th>業者名</th><th>種別</th><th>作業</th><th class="num">契約額</th><th>支払予定</th><th>支払</th><th>操作</th></tr></thead>
+              <tbody id="gaichuu-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 使い方 -->
+  <div id="page-howto" class="page">
+    <div style="max-width:840px;">
+      <div class="panel" style="margin-bottom:18px;">
+        <div class="panel-header"><div class="panel-title">📖 このツールの概要</div></div>
+        <div class="panel-body">
+          <p style="line-height:1.9;color:var(--text2);">建設業向けリアルタイム原価管理ツールです。工事別に受注額・実行予算・原価（労務費・資材費・外注費）を一元管理し、粗利率をリアルタイムで把握できます。<strong style="color:var(--text);">データはブラウザ内（localStorage）に保存</strong>されます。インターネット不要・インストール不要で動作します。</p>
+          <div class="alert-box info" style="margin-top:13px;">ℹ️ <strong>データ消失に注意：</strong>ブラウザのキャッシュ・Cookie削除でデータが消えます。月末は必ず「💾 バックアップ」でJSONファイルを保存してください。</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:18px;">
+        <div class="panel-header"><div class="panel-title">🚀 基本的な使い方の流れ</div></div>
+        <div class="panel-body">
+          <div class="howto-step"><div class="howto-num">1</div><div class="howto-content"><strong>工事台帳 → 工事を登録する</strong><p>右上の「＋ 工事追加」から工事名・受注額・実行予算・工期を登録します。ここが全データの起点です。工事を登録しないと日報・資材・外注の登録ができません。</p></div></div>
+          <div class="howto-step"><div class="howto-num">2</div><div class="howto-content"><strong>日報入力 → 毎日の労務費を記録する</strong><p>工事を選択し、出退勤時刻・時給を入力すると労務費が自動計算されます。時間外・深夜・法定休日の割増賃金も自動で反映されます。</p></div></div>
+          <div class="howto-step"><div class="howto-num">3</div><div class="howto-content"><strong>資材管理 → 発注した資材を記録する</strong><p>見積単価と発注単価を入力すると差額（コスト超過）が即座に表示されます。見積比+5%超はダッシュボードにアラートが出ます。</p></div></div>
+          <div class="howto-step"><div class="howto-num">4</div><div class="howto-content"><strong>外注管理 → 協力業者・一人親方への発注を記録</strong><p>業者名・契約額・支払予定日を登録し、支払状況を管理します。未払い業者はオレンジ表示で確認できます。</p></div></div>
+          <div class="howto-step"><div class="howto-num">5</div><div class="howto-content"><strong>ダッシュボード → 工事別粗利をリアルタイム確認</strong><p>労務費・資材費・外注費が自動集計され、工事別の粗利率が常に表示されます。赤字・低粗利工事はアラートで通知されます。</p></div></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:18px;">
+        <div class="panel-header"><div class="panel-title">⏱ 日報の給与計算ロジック（labor-app準拠）</div></div>
+        <div class="panel-body">
+          <p style="margin-bottom:12px;color:var(--text2);">labor-appと同じ東京労働局リーフレット準拠の割増賃金計算を採用しています。</p>
+          <div class="formula-box">
+            実労働時間 ＝ （退勤 − 出勤） − 休憩時間<br>
+            時間外時間 ＝ MAX( 実労働時間 − 8h, 0 )<br>
+            深夜時間　 ＝ 22:00〜翌5:00 と重なる時間<br><br>
+            <span class="hl">所定内給与</span> ＝ MIN(実労働, 8h) × 時給 × <span class="hl">1.00</span><br>
+            <span class="hl">時間外割増</span> ＝ 時間外時間 × 時給 × <span class="hl">1.25</span><br>
+            <span class="hl">深夜割増</span>　 ＝ 深夜時間 × 時給 × <span class="hl">0.25</span>（重複加算）<br>
+            <span class="hl">法定休日</span>　 ＝ 実労働(〜8h) × 時給 × <span class="hl">1.35</span><br>
+            　　　　　　　　　＋ 超過分 × 時給 × <span class="hl">1.60</span>（8h超）
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:18px;">
+        <div class="panel-header"><div class="panel-title">💾 データ保存・バックアップ・復元</div></div>
+        <div class="panel-body">
+          <div class="howto-step"><div class="howto-num" style="background:var(--blue);">📥</div><div class="howto-content"><strong>CSV出力（ヘッダー「📥 CSV出力」）</strong><p>工事台帳・日報・資材・外注データをCSVファイルで書き出します。ExcelやGoogleスプレッドシートで帳票作成・月別集計に使えます。</p></div></div>
+          <div class="howto-step"><div class="howto-num" style="background:var(--green);">💾</div><div class="howto-content"><strong>バックアップ（ヘッダー「💾 バックアップ」）</strong><p>全データをJSONファイルで保存します。月末に必ず実行してください。PCの機種変更・誤削除時の完全復元に使えます。</p></div></div>
+          <div class="howto-step"><div class="howto-num" style="background:var(--purple);">📂</div><div class="howto-content"><strong>復元（ヘッダー「📂 復元」）</strong><p>バックアップしたJSONファイルを読み込み、データを完全復元します。別のPCへの引っ越しにも使えます。</p></div></div>
+          <div class="alert-box warn" style="margin-top:6px;">⚠️ Chromeの「閲覧データを削除」で<strong>「Cookieとサイトデータ」にチェックが入っているとデータが消えます</strong>。このチェックは必ず外してから削除してください。</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:18px;">
+        <div class="panel-header"><div class="panel-title">🚨 アラートの種類と対処法</div></div>
+        <div class="panel-body">
+          <p style="margin-bottom:16px;color:var(--text2);line-height:1.8;">ダッシュボードに表示されるアラートの意味と対処法を説明します。アラートは自動で計算・判定されます。</p>
+
+          <div style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="background:rgba(248,81,73,.15);color:var(--red);padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">⛔ 赤字アラート</span>
+              <span class="text-sm">最優先で対応が必要</span>
+            </div>
+            <p style="color:var(--text2);line-height:1.8;font-size:13px;"><strong style="color:var(--text);">発生条件：</strong>原価発生額（労務費＋資材費＋外注費の合計）が受注額を超えた工事<br>
+            <strong style="color:var(--text);">意味：</strong>この工事は現時点でマイナス（損失）が出ています<br>
+            <strong style="color:var(--text);">対処：</strong>追加費用の発生を止める・発注者に変更協議を行う・残工程のコストを見直す</p>
+          </div>
+
+          <div style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="background:rgba(240,162,42,.15);color:var(--accent);padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">⚠️ 粗利率低下アラート</span>
+              <span class="text-sm">早めに確認が必要</span>
+            </div>
+            <p style="color:var(--text2);line-height:1.8;font-size:13px;"><strong style="color:var(--text);">発生条件：</strong>粗利率が5%未満（赤字ではないが薄利）の進行中工事<br>
+            <strong style="color:var(--text);">意味：</strong>このまま進むと赤字になるリスクがあります。残工程次第でマイナスに転じる可能性があります<br>
+            <strong style="color:var(--text);">対処：</strong>残工程の原価予測を見直す・外注費の圧縮を検討する</p>
+          </div>
+
+          <div style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="background:rgba(240,162,42,.15);color:var(--accent);padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">📦 資材単価アラート</span>
+              <span class="text-sm">コスト超過の予兆</span>
+            </div>
+            <p style="color:var(--text2);line-height:1.8;font-size:13px;"><strong style="color:var(--text);">発生条件：</strong>発注単価が見積単価より5%以上高い資材がある場合<br>
+            <strong style="color:var(--text);">意味：</strong>想定より高い単価で資材を発注しています。差額合計がそのまま粗利の減少になります<br>
+            <strong style="color:var(--text);">対処：</strong>別業者への見積もりを取り直す・発注量を調整する・実行予算の見直しを検討する</p>
+          </div>
+
+          <div style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="background:rgba(248,81,73,.15);color:var(--red);padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">💳 外注支払超過アラート</span>
+              <span class="text-sm">法令リスクあり</span>
+            </div>
+            <p style="color:var(--text2);line-height:1.8;font-size:13px;"><strong style="color:var(--text);">発生条件：</strong>支払予定日を過ぎても「未払い」のまま放置されている外注費がある場合<br>
+            <strong style="color:var(--text);">意味：</strong>下請法では支払サイト60日超が行政指導の対象になります。一人親方・協力業者への遅延支払いは取引関係の悪化にもつながります<br>
+            <strong style="color:var(--text);">対処：</strong>外注管理タブで該当業者の支払を実施し「支払済み」に更新する</p>
+          </div>
+
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="background:rgba(248,81,73,.15);color:var(--red);padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">📅 工期超過アラート</span>
+              <span class="text-sm">確認が必要</span>
+            </div>
+            <p style="color:var(--text2);line-height:1.8;font-size:13px;"><strong style="color:var(--text);">発生条件：</strong>竣工予定日を過ぎても「進行中」のまま管理されている工事<br>
+            <strong style="color:var(--text);">意味：</strong>工期が予定より伸びています。工期延長は追加の労務費・間接費の発生につながります<br>
+            <strong style="color:var(--text);">対処：</strong>工事台帳で竣工予定日を更新するか、ステータスを「完了」に変更する</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">📊 粗利率バッジの見方</div></div>
+        <div class="panel-body">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:center;gap:14px;padding:10px;background:var(--surface2);border-radius:6px;">
+              <span class="badge green" style="font-size:13px;padding:4px 12px;">10.0%</span>
+              <div><strong style="color:var(--green);">緑（10%以上）</strong><span style="color:var(--text2);font-size:13px;margin-left:8px;">→ 安全圏。このペースを維持してください</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;padding:10px;background:var(--surface2);border-radius:6px;">
+              <span class="badge yellow" style="font-size:13px;padding:4px 12px;">5.0%</span>
+              <div><strong style="color:var(--accent);">黄（5〜10%未満）</strong><span style="color:var(--text2);font-size:13px;margin-left:8px;">→ 要注意。残工程のコスト管理を強化してください</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;padding:10px;background:var(--surface2);border-radius:6px;">
+              <span class="badge red" style="font-size:13px;padding:4px 12px;">-2.0%</span>
+              <div><strong style="color:var(--red);">赤（5%未満・マイナス）</strong><span style="color:var(--text2);font-size:13px;margin-left:8px;">→ 危険。即時に原因を特定して対策が必要</span></div>
+            </div>
+          </div>
+          <p style="color:var(--text2);font-size:12px;margin-top:12px;">※ 粗利率の基準は業種・工事規模により異なります。自社の過去実績と比較して判断してください。</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">❓ よくある質問</div></div>
+        <div class="panel-body">
+          <div style="margin-bottom:16px;"><strong>Q. 月別・年別の集計はできますか？</strong><p style="color:var(--text2);margin-top:5px;line-height:1.7;">現バージョンは工事別管理が主軸です。日報の日付データは記録されているので、CSV出力後にExcelで月別ピボットを作成できます。今後のアップデートで月次サマリタブを追加予定です。</p></div>
+          <div style="margin-bottom:16px;"><strong>Q. スマホでも使えますか？</strong><p style="color:var(--text2);margin-top:5px;line-height:1.7;">レスポンシブ対応しています。現場でのスマホ入力も可能です。ただしデータはそのブラウザ内に保存されるため、PCとスマホでデータを共有することはできません。</p></div>
+          <div style="margin-bottom:16px;"><strong>Q. 複数人で同時に使えますか？</strong><p style="color:var(--text2);margin-top:5px;line-height:1.7;">現バージョンはブラウザローカル保存のため、1台での利用が前提です。複数人でリアルタイム共有するにはサーバー型への移行が必要です。</p></div>
+          <div><strong>Q. データは外部サーバーに送信されますか？</strong><p style="color:var(--text2);margin-top:5px;line-height:1.7;">送信されません。全データはあなたのブラウザ内にのみ保存されます。オフラインでも動作します。</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /container -->
+
+<footer style="border-top:1px solid var(--border);text-align:center;padding:18px;font-size:12px;color:var(--text2);margin-top:10px;">
+  © 2025 AIおきなわ
+</footer>
+
+<!-- MODAL: 工事（追加・編集共用） -->
+<div class="modal-overlay" id="kojiModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="koji-modal-title">新規工事登録</h3><button class="btn btn-ghost btn-sm" onclick="closeModal('kojiModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="km-edit-id">
+      <div class="form-grid">
+        <div class="form-group"><label>工事番号</label><input type="text" id="km-kojino" placeholder="2024-001"></div>
+        <div class="form-group"><label>工事名</label><input type="text" id="km-name" placeholder="〇〇ビル新築工事"></div>
+        <div class="form-group"><label>発注者</label><input type="text" id="km-client" placeholder="〇〇不動産"></div>
+        <div class="form-group"><label>受注額（円）</label><input type="number" id="km-juchu" min="0" step="1000"></div>
+        <div class="form-group"><label>実行予算（円）</label><input type="number" id="km-yosan" min="0" step="1000"></div>
+        <div class="form-group"><label>着工日</label><input type="date" id="km-start"></div>
+        <div class="form-group"><label>竣工予定日</label><input type="date" id="km-end"></div>
+        <div class="form-group"><label>ステータス</label>
+          <select id="km-status"><option value="active">進行中</option><option value="warning">要注意</option><option value="done">完了</option><option value="idle">未着工</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('kojiModal')">キャンセル</button>
+      <button class="btn btn-primary" id="koji-save-btn" onclick="saveKoji()">工事登録</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 日報編集 -->
+<div class="modal-overlay" id="nippoEditModal">
+  <div class="modal">
+    <div class="modal-header"><h3>日報編集</h3><button class="btn btn-ghost btn-sm" onclick="closeModal('nippoEditModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ne-id">
+      <div class="form-grid">
+        <div class="form-group"><label>日付</label><input type="date" id="ne-date"></div>
+        <div class="form-group"><label>工事</label><select id="ne-koji"></select></div>
+        <div class="form-group"><label>作業者名</label><input type="text" id="ne-worker"></div>
+        <div class="form-group"><label>職種</label>
+          <select id="ne-shokushu"><option>現場監督</option><option>型枠工</option><option>鉄筋工</option><option>左官工</option><option>大工</option><option>電気工</option><option>配管工</option><option>重機オペレーター</option><option>一般作業員</option></select>
+        </div>
+        <div class="form-group"><label>勤務区分</label>
+          <select id="ne-kubun"><option value="平日">平日</option><option value="法定休日">法定休日</option><option value="雨天中止">雨天中止</option></select>
+        </div>
+        <div class="form-group"><label>時給（円）</label><input type="number" id="ne-rate" min="0" step="100"></div>
+        <div class="form-group"><label>出勤時刻</label><input type="time" id="ne-start"></div>
+        <div class="form-group"><label>退勤時刻</label><input type="time" id="ne-end"></div>
+        <div class="form-group"><label>休憩（分）</label><input type="number" id="ne-break" min="0"></div>
+        <div class="form-group span2"><label>作業内容</label><input type="text" id="ne-work"></div>
+        <div class="form-group span2"><label>備考</label><input type="text" id="ne-note"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('nippoEditModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveNippoEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 資材編集 -->
+<div class="modal-overlay" id="zairyoEditModal">
+  <div class="modal">
+    <div class="modal-header"><h3>資材編集</h3><button class="btn btn-ghost btn-sm" onclick="closeModal('zairyoEditModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ze-id">
+      <div class="form-grid">
+        <div class="form-group"><label>工事</label><select id="ze-koji"></select></div>
+        <div class="form-group"><label>資材名</label><input type="text" id="ze-name"></div>
+        <div class="form-group"><label>単位</label><select id="ze-unit"><option>m³</option><option>t</option><option>kg</option><option>枚</option><option>本</option><option>袋</option><option>m</option><option>式</option></select></div>
+        <div class="form-group"><label>数量</label><input type="number" id="ze-qty" min="0" step="0.1"></div>
+        <div class="form-group"><label>見積単価</label><input type="number" id="ze-est" min="0" step="100"></div>
+        <div class="form-group"><label>発注単価</label><input type="number" id="ze-act" min="0" step="100"></div>
+        <div class="form-group"><label>発注日</label><input type="date" id="ze-orderdate"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('zairyoEditModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveZairyoEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 外注編集 -->
+<div class="modal-overlay" id="gaichuuEditModal">
+  <div class="modal">
+    <div class="modal-header"><h3>外注編集</h3><button class="btn btn-ghost btn-sm" onclick="closeModal('gaichuuEditModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ge-id">
+      <div class="form-grid">
+        <div class="form-group"><label>工事</label><select id="ge-koji"></select></div>
+        <div class="form-group"><label>業者名</label><input type="text" id="ge-company"></div>
+        <div class="form-group"><label>種別</label><select id="ge-type"><option>一人親方</option><option>専門工事業者</option><option>設備業者</option><option>材料供給業者</option><option>リース業者</option></select></div>
+        <div class="form-group"><label>作業内容</label><input type="text" id="ge-work"></div>
+        <div class="form-group"><label>契約金額</label><input type="number" id="ge-contract" min="0" step="1000"></div>
+        <div class="form-group"><label>支払予定日</label><input type="date" id="ge-paydate"></div>
+        <div class="form-group"><label>支払ステータス</label><select id="ge-paid"><option value="false">未払い</option><option value="true">支払済み</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('gaichuuEditModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveGaichuuEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+let D = {koji:[],nippo:[],zairyo:[],gaichuu:[]};
+const STORE = 'genka-v2';
+function load(){ const s=localStorage.getItem(STORE); if(s) D=JSON.parse(s); }
+function save(){ localStorage.setItem(STORE,JSON.stringify(D)); }
+load();
+
+// ===== UTILS =====
+// 数値表示：プラスは白、マイナスは赤でspanラップ
+const yen = n => {
+  const v = Math.round(n);
+  if(v < 0) return `<span class="num-neg">-¥${Math.abs(v).toLocaleString()}</span>`;
+  return '¥'+v.toLocaleString();
+};
+const yenRaw = n => { const v=Math.round(n); return (v<0?'-¥':' ¥')+Math.abs(v).toLocaleString(); };
+const pct = n => (n*100).toFixed(1)+'%';
+const today = () => new Date().toISOString().slice(0,10);
+const uid = () => '_'+Math.random().toString(36).slice(2,9);
+const kName = id => { const k=D.koji.find(k=>k.id===id); return k?k.name:id; };
+const t2m = t => { if(!t)return 0; const [h,m]=t.split(':').map(Number); return h*60+(m||0); };
+
+// ===== 給与計算（labor-app準拠） =====
+function nightHours(startT, endT, breakMin) {
+  const s=t2m(startT), e=t2m(endT)||t2m(startT)+8*60;
+  const wMin = e-s-breakMin;
+  // 深夜帯との重複（22:00-24:00 & 0:00-5:00）
+  let n=0;
+  const ov=(a,b,c,dd)=>Math.max(0,Math.min(b,dd)-Math.max(a,c));
+  n += ov(s,e,22*60,24*60);      // 当日22〜24時
+  n += ov(s,e,0,5*60);           // 翌0〜5時（退勤が0時以降の場合）
+  if(e>24*60) n += ov(s-24*60,e-24*60,0,5*60); // 翌日まで
+  return Math.min(n, Math.max(wMin,0)) / 60;
+}
+
+function calcCost(n) {
+  if(n.kubun==='雨天中止') return 0;
+  const r=n.rate||0; if(!r) return 0;
+  const wMin = t2m(n.endTime)-t2m(n.startTime)-(n.breakMin||60);
+  const wH = Math.max(wMin,0)/60;
+  const nightH = nightHours(n.startTime, n.endTime, n.breakMin||60);
+  if(n.kubun==='法定休日'){
+    const base = Math.min(wH,8)*r*1.35;
+    const ot   = Math.max(wH-8,0)*r*1.60;
+    return base+ot+nightH*r*0.25;
+  }
+  const base = Math.min(wH,8)*r;
+  const ot   = Math.max(wH-8,0)*r*1.25;
+  return base+ot+nightH*r*0.25;
+}
+
+function calcDetail(r, startT, endT, breakMin, kubun) {
+  if(kubun==='雨天中止') return {wH:0,otH:0,nightH:0,base:0,otPay:0,ot50:0,nightPay:0,total:0};
+  const wMin=Math.max(t2m(endT)-t2m(startT)-breakMin,0);
+  const wH=wMin/60;
+  const otH=Math.max(wH-8,0);
+  const nightH=nightHours(startT,endT,breakMin);
+  if(kubun==='法定休日'){
+    const base=Math.min(wH,8)*r*1.35;
+    const otPay=Math.max(wH-8,0)*r*1.60;
+    const nightPay=nightH*r*0.25;
+    return {wH,otH,nightH,base,otPay,ot50:0,nightPay,total:base+otPay+nightPay};
+  }
+  const base=Math.min(wH,8)*r;
+  const otPay=otH*r*1.25;
+  const nightPay=nightH*r*0.25;
+  return {wH,otH,nightH,base,otPay,ot50:0,nightPay,total:base+otPay+nightPay};
+}
+
+// ===== COST =====
+function kojiCost(id){
+  const romu   =D.nippo.filter(n=>n.kojiId===id).reduce((s,n)=>s+n.cost,0);
+  const zairyo =D.zairyo.filter(z=>z.kojiId===id).reduce((s,z)=>s+z.actPrice*z.qty,0);
+  const gaichuu=D.gaichuu.filter(g=>g.kojiId===id).reduce((s,g)=>s+g.contract,0);
+  return {romu,zairyo,gaichuu,total:romu+zairyo+gaichuu};
+}
+
+// ===== RENDER =====
+function renderAll(){ renderDash(); renderKoji(); renderNippo(); renderZairyo(); renderGaichuu(); syncSelects(); }
+
+const SL={active:'s-active',warning:'s-warning',done:'s-done',idle:'s-idle'};
+const STL={active:'進行中',warning:'要注意',done:'完了',idle:'未着工'};
+
+function renderDash(){
+  let tJ=0,tY=0,tG=0,warn=0;
+  D.koji.filter(k=>k.status==='active'||k.status==='warning').forEach(k=>{
+    tJ+=k.juchu; tY+=k.yosan;
+    const c=kojiCost(k.id); tG+=c.total;
+    if(k.juchu>0&&(k.juchu-c.total)/k.juchu<0.05) warn++;
+  });
+  const tp=tJ-tG, tpr=tJ>0?tp/tJ:0;
+  document.getElementById('kpi-juchu').textContent=yenRaw(tJ);
+  document.getElementById('kpi-juchu-cnt').textContent=D.koji.filter(k=>k.status==='active').length+'件';
+  document.getElementById('kpi-yosan').textContent=yenRaw(tY);
+  const pel=document.getElementById('kpi-profit'); pel.textContent=yenRaw(tp); pel.className='kpi-value '+(tp<0?'num-neg':'');
+  const rel=document.getElementById('kpi-profit-rate'); rel.textContent=pct(tpr); rel.className='badge '+(tpr>=0.1?'green':tpr>=0.05?'yellow':'red');
+  document.getElementById('kpi-genka').textContent=yenRaw(tG);
+  document.getElementById('kpi-alert-cnt').textContent=warn+'件';
+
+  let alerts='';
+  const todayStr=today();
+  D.koji.forEach(k=>{
+    const c=kojiCost(k.id);
+    if((k.status==='active'||k.status==='warning')&&c.total>0){
+      const r=(k.juchu-c.total)/k.juchu;
+      if(r<0) alerts+=`<div class="alert-box danger">⛔ <strong>${k.name}</strong> が赤字です。粗利率 ${pct(r)}（損失 ${yen(k.juchu-c.total)}）</div>`;
+      else if(r<0.05) alerts+=`<div class="alert-box warn">⚠️ <strong>${k.name}</strong> の粗利率が低下中。現在 ${pct(r)}</div>`;
+    }
+    // 工期超過アラート
+    if(k.status==='active' && k.end && k.end < todayStr){
+      alerts+=`<div class="alert-box warn">📅 <strong>${k.name}</strong> の竣工予定日（${k.end}）を過ぎています。工事台帳でステータスを更新してください。</div>`;
+    }
+  });
+  // 外注支払超過アラート
+  const overdueG=D.gaichuu.filter(g=>!g.paid && g.payDate && g.payDate < todayStr);
+  overdueG.forEach(g=>{
+    alerts+=`<div class="alert-box danger">💳 <strong>${g.company}</strong>（${kName(g.kojiId)}）への支払期限（${g.payDate}）が過ぎています。外注管理タブで確認してください。</div>`;
+  });
+  document.getElementById('alert-area').innerHTML=alerts;
+
+  const tbody=document.getElementById('dashboard-table');
+  if(!D.koji.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:28px;">工事データがありません。「＋ 工事追加」から登録してください</td></tr>'; }
+  else tbody.innerHTML=D.koji.map(k=>{
+    const c=kojiCost(k.id),profit=k.juchu-c.total,py=k.juchu-k.yosan,pr=k.juchu>0?profit/k.juchu:0,prog=k.yosan>0?Math.min(c.total/k.yosan,1):0;
+    return `<tr><td><strong>${k.name}</strong><br><span class="text-sm">${k.client||''}</span></td><td><span class="status ${SL[k.status]||'s-idle'}">${STL[k.status]||k.status}</span></td><td class="num">${yen(k.juchu)}</td><td class="num">${yen(k.yosan)}</td><td class="num">${yen(c.total)}</td><td class="num">${yen(py)}</td><td><div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:${prog*100}%;background:${prog>.9?'var(--red)':prog>.7?'var(--accent)':'var(--blue)'}"></div></div><span class="text-sm text-mono">${(prog*100).toFixed(0)}%</span></div></td><td class="num"><span class="badge ${pr<0?'red':pr<0.1?'yellow':'green'}">${pct(pr)}</span></td></tr>`;
+  }).join('');
+
+  let rT=0,zT=0,gT=0; D.koji.forEach(k=>{ const c=kojiCost(k.id); rT+=c.romu; zT+=c.zairyo; gT+=c.gaichuu; });
+  const ct=rT+zT+gT||1;
+  document.getElementById('cost-breakdown').innerHTML=[{l:'労務費',v:rT,c:'var(--blue)'},{l:'資材費',v:zT,c:'var(--accent)'},{l:'外注費',v:gT,c:'var(--purple)'}]
+    .map(b=>`<div class="cost-row"><span class="cost-label">${b.l}</span><div class="cost-bar-wrap"><div class="cost-bar" style="width:${(b.v/ct*100).toFixed(1)}%;background:${b.c}"></div></div><span class="cost-amount">${yen(b.v)}</span><span class="cost-pct">${(b.v/ct*100).toFixed(1)}%</span></div>`).join('');
+
+  const za=D.zairyo.filter(z=>z.actPrice>z.estPrice*1.05);
+  document.getElementById('zairyo-alerts').innerHTML=za.length?za.map(z=>`<div class="alert-box warn">📦 <strong>${z.name}</strong>（${kName(z.kojiId)}）<br>見積比 +${yen(z.actPrice-z.estPrice)}/単位 → 差額合計 <strong>+${yen((z.actPrice-z.estPrice)*z.qty)}</strong></div>`).join(''):'<div class="text-sm" style="padding:8px 0;">現在アラートはありません ✓</div>';
+}
+
+function renderKoji(){
+  const tbody=document.getElementById('koji-table');
+  if(!D.koji.length){ tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text2);padding:28px;">工事データがありません</td></tr>'; return; }
+  tbody.innerHTML=D.koji.map(k=>{
+    const c=kojiCost(k.id),pr=k.juchu>0?(k.juchu-c.total)/k.juchu:0;
+    return `<tr><td class="text-mono text-sm">${k.kojiId||''}</td><td><strong>${k.name}</strong></td><td>${k.client||'-'}</td><td class="text-sm">${k.start||''}〜${k.end||''}</td><td class="num">${yen(k.juchu)}</td><td class="num">${yen(k.yosan)}</td><td class="num">${yen(c.total)}</td><td class="num"><span class="badge ${pr<0?'red':pr<0.1?'yellow':'green'}">${pct(pr)}</span></td><td><span class="status ${SL[k.status]||'s-idle'}">${STL[k.status]||k.status}</span></td><td><div class="btn-row"><button class="btn btn-edit btn-sm" onclick="openEditKoji('${k.id}')">✏️ 編集</button><button class="btn btn-danger btn-sm" onclick="delKoji('${k.id}')">🗑 削除</button></div></td></tr>`;
+  }).join('');
+}
+
+function renderNippo(){
+  const list=[...D.nippo].reverse();
+  document.getElementById('nippo-count').textContent=list.length+'件';
+  const tbody=document.getElementById('nippo-table');
+  if(!list.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px;">日報データがありません</td></tr>'; return; }
+  tbody.innerHTML=list.slice(0,40).map(n=>`<tr><td class="text-sm">${n.date}</td><td class="text-sm">${kName(n.kojiId)}</td><td>${n.worker}<br><span class="tag">${n.shokushu}</span></td><td class="num">${(n.workH||0).toFixed(1)}h</td><td class="num">${yen(n.cost)}</td><td><div class="btn-row"><button class="btn btn-edit btn-sm" onclick="openEditNippo('${n.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delNippo('${n.id}')">🗑</button></div></td></tr>`).join('');
+}
+
+function renderZairyo(){
+  const tbody=document.getElementById('zairyo-table');
+  if(!D.zairyo.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:20px;">資材データがありません</td></tr>'; return; }
+  tbody.innerHTML=[...D.zairyo].reverse().map(z=>{
+    const diff=(z.actPrice-z.estPrice)*z.qty;
+    const diffStr = diff>0 ? `<span style="color:var(--text)">${yen(diff)}</span>` : yen(diff);
+    return `<tr><td class="text-sm">${kName(z.kojiId)}</td><td>${z.name}</td><td class="num">${z.qty} ${z.unit}</td><td class="num">${yen(z.estPrice)}</td><td class="num">${yen(z.actPrice)}</td><td class="num">${diffStr}</td><td class="text-sm">${z.orderDate||'-'}</td><td><div class="btn-row"><button class="btn btn-edit btn-sm" onclick="openEditZairyo('${z.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delZairyo('${z.id}')">🗑</button></div></td></tr>`;
+  }).join('');
+}
+
+function renderGaichuu(){
+  const tbody=document.getElementById('gaichuu-table');
+  if(!D.gaichuu.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:20px;">外注データがありません</td></tr>'; return; }
+  tbody.innerHTML=[...D.gaichuu].reverse().map(g=>`<tr><td class="text-sm">${kName(g.kojiId)}</td><td>${g.company}</td><td><span class="tag">${g.type}</span></td><td class="text-sm">${g.work}</td><td class="num">${yen(g.contract)}</td><td class="text-sm">${g.payDate||'-'}</td><td><span class="status ${g.paid?'s-done':'s-warning'}">${g.paid?'支払済':'未払い'}</span></td><td><div class="btn-row"><button class="btn btn-edit btn-sm" onclick="openEditGaichuu('${g.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delGaichuu('${g.id}')">🗑</button></div></td></tr>`).join('');
+}
+
+function syncSelects(){
+  const opts=D.koji.length?D.koji.map(k=>`<option value="${k.id}">${k.name}</option>`).join(''):'<option value="">（先に工事を登録）</option>';
+  ['np-koji','zm-koji','gm-koji','ne-koji','ze-koji','ge-koji'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=opts; });
+}
+
+// ===== KOJI =====
+function openAddKoji(){ document.getElementById('km-edit-id').value=''; document.getElementById('koji-modal-title').textContent='新規工事登録'; document.getElementById('koji-save-btn').textContent='工事登録'; ['km-kojino','km-name','km-client','km-juchu','km-yosan','km-start','km-end'].forEach(id=>document.getElementById(id).value=''); document.getElementById('km-status').value='active'; openModal('kojiModal'); }
+function openEditKoji(id){ const k=D.koji.find(k=>k.id===id); if(!k) return; document.getElementById('km-edit-id').value=k.id; document.getElementById('km-kojino').value=k.kojiId||''; document.getElementById('km-name').value=k.name; document.getElementById('km-client').value=k.client||''; document.getElementById('km-juchu').value=k.juchu; document.getElementById('km-yosan').value=k.yosan; document.getElementById('km-start').value=k.start||''; document.getElementById('km-end').value=k.end||''; document.getElementById('km-status').value=k.status; document.getElementById('koji-modal-title').textContent='工事編集'; document.getElementById('koji-save-btn').textContent='更新'; openModal('kojiModal'); }
+function saveKoji(){ const eid=document.getElementById('km-edit-id').value; const o={id:eid||uid(),kojiId:document.getElementById('km-kojino').value.trim(),name:document.getElementById('km-name').value.trim(),client:document.getElementById('km-client').value.trim(),juchu:parseFloat(document.getElementById('km-juchu').value)||0,yosan:parseFloat(document.getElementById('km-yosan').value)||0,start:document.getElementById('km-start').value,end:document.getElementById('km-end').value,status:document.getElementById('km-status').value}; if(!o.name){alert('工事名を入力してください');return;} if(eid) D.koji=D.koji.map(k=>k.id===eid?o:k); else D.koji.push(o); save(); closeModal('kojiModal'); renderAll(); }
+function delKoji(id){
+  const k=D.koji.find(k=>k.id===id); if(!k) return;
+  const nCnt=D.nippo.filter(n=>n.kojiId===id).length;
+  const zCnt=D.zairyo.filter(z=>z.kojiId===id).length;
+  const gCnt=D.gaichuu.filter(g=>g.kojiId===id).length;
+  const msg=`「${k.name}」を削除します。\n\n関連データも同時に削除されます：\n・日報：${nCnt}件\n・資材：${zCnt}件\n・外注：${gCnt}件\n\nこの操作は元に戻せません。削除しますか？`;
+  if(!confirm(msg)) return;
+  D.koji=D.koji.filter(k=>k.id!==id); D.nippo=D.nippo.filter(n=>n.kojiId!==id); D.zairyo=D.zairyo.filter(z=>z.kojiId!==id); D.gaichuu=D.gaichuu.filter(g=>g.kojiId!==id); save(); renderAll();
+}
+
+// ===== NIPPO =====
+function addNippo(){
+  const kojiId=document.getElementById('np-koji').value;
+  const worker=document.getElementById('np-worker').value.trim();
+  if(!kojiId){alert('工事を選択してください');return;}
+  if(!worker){alert('作業者名を入力してください');return;}
+  const rate=parseFloat(document.getElementById('np-rate').value)||0;
+  const startTime=document.getElementById('np-start').value;
+  const endTime=document.getElementById('np-end').value;
+  const breakMin=parseInt(document.getElementById('np-break').value)||60;
+  const kubun=document.getElementById('np-kubun').value;
+  const wMin=Math.max(t2m(endTime)-t2m(startTime)-breakMin,0);
+  const n={id:uid(),kojiId,date:document.getElementById('np-date').value||today(),worker,shokushu:document.getElementById('np-shokushu').value,kubun,rate,startTime,endTime,breakMin,workH:wMin/60,work:document.getElementById('np-work').value.trim(),note:document.getElementById('np-note').value.trim(),cost:0};
+  n.cost=calcCost(n);
+  D.nippo.push(n); save(); renderAll();
+  ['np-worker','np-work','np-note'].forEach(id=>document.getElementById(id).value='');
+}
+function openEditNippo(id){ syncSelects(); const n=D.nippo.find(n=>n.id===id); if(!n) return; document.getElementById('ne-id').value=n.id; document.getElementById('ne-date').value=n.date; document.getElementById('ne-koji').value=n.kojiId; document.getElementById('ne-worker').value=n.worker; document.getElementById('ne-shokushu').value=n.shokushu; document.getElementById('ne-kubun').value=n.kubun||'平日'; document.getElementById('ne-rate').value=n.rate; document.getElementById('ne-start').value=n.startTime||'08:00'; document.getElementById('ne-end').value=n.endTime||'17:00'; document.getElementById('ne-break').value=n.breakMin||60; document.getElementById('ne-work').value=n.work||''; document.getElementById('ne-note').value=n.note||''; openModal('nippoEditModal'); }
+function saveNippoEdit(){ const id=document.getElementById('ne-id').value; const rate=parseFloat(document.getElementById('ne-rate').value)||0; const startTime=document.getElementById('ne-start').value; const endTime=document.getElementById('ne-end').value; const breakMin=parseInt(document.getElementById('ne-break').value)||60; const kubun=document.getElementById('ne-kubun').value; const wMin=Math.max(t2m(endTime)-t2m(startTime)-breakMin,0); const u={id,kojiId:document.getElementById('ne-koji').value,date:document.getElementById('ne-date').value,worker:document.getElementById('ne-worker').value.trim(),shokushu:document.getElementById('ne-shokushu').value,kubun,rate,startTime,endTime,breakMin,workH:wMin/60,work:document.getElementById('ne-work').value.trim(),note:document.getElementById('ne-note').value.trim(),cost:0}; u.cost=calcCost(u); D.nippo=D.nippo.map(n=>n.id===id?u:n); save(); closeModal('nippoEditModal'); renderAll(); }
+function delNippo(id){ D.nippo=D.nippo.filter(n=>n.id!==id); save(); renderAll(); }
+
+// ===== ZAIRYO =====
+function addZairyo(){ const kojiId=document.getElementById('zm-koji').value; const name=document.getElementById('zm-name').value.trim(); if(!kojiId){alert('工事を選択');return;} if(!name){alert('資材名を入力');return;} const z={id:uid(),kojiId,name,unit:document.getElementById('zm-unit').value,qty:parseFloat(document.getElementById('zm-qty').value)||0,estPrice:parseFloat(document.getElementById('zm-est').value)||0,actPrice:parseFloat(document.getElementById('zm-act').value)||0,orderDate:document.getElementById('zm-orderdate').value}; D.zairyo.push(z); save(); renderAll(); ['zm-name','zm-qty','zm-est','zm-act'].forEach(id=>document.getElementById(id).value=''); document.getElementById('zm-diff-box').style.display='none'; }
+function openEditZairyo(id){ syncSelects(); const z=D.zairyo.find(z=>z.id===id); if(!z) return; document.getElementById('ze-id').value=z.id; document.getElementById('ze-koji').value=z.kojiId; document.getElementById('ze-name').value=z.name; document.getElementById('ze-unit').value=z.unit; document.getElementById('ze-qty').value=z.qty; document.getElementById('ze-est').value=z.estPrice; document.getElementById('ze-act').value=z.actPrice; document.getElementById('ze-orderdate').value=z.orderDate||''; openModal('zairyoEditModal'); }
+function saveZairyoEdit(){ const id=document.getElementById('ze-id').value; const u={id,kojiId:document.getElementById('ze-koji').value,name:document.getElementById('ze-name').value.trim(),unit:document.getElementById('ze-unit').value,qty:parseFloat(document.getElementById('ze-qty').value)||0,estPrice:parseFloat(document.getElementById('ze-est').value)||0,actPrice:parseFloat(document.getElementById('ze-act').value)||0,orderDate:document.getElementById('ze-orderdate').value}; D.zairyo=D.zairyo.map(z=>z.id===id?u:z); save(); closeModal('zairyoEditModal'); renderAll(); }
+function delZairyo(id){ D.zairyo=D.zairyo.filter(z=>z.id!==id); save(); renderAll(); }
+function updateZairyoDiff(){ const est=parseFloat(document.getElementById('zm-est').value)||0,act=parseFloat(document.getElementById('zm-act').value)||0,qty=parseFloat(document.getElementById('zm-qty').value)||0; if(est>0&&act>0&&qty>0){ const d=(act-est)*qty; const box=document.getElementById('zm-diff-box'); box.style.display='block'; const v=document.getElementById('zm-diff-val'); v.textContent=(d>0?'+':'')+yenRaw(d)+' ('+(((act-est)/est)*100).toFixed(1)+'%)'; v.className='text-mono '+(d<0?'num-neg':''); } }
+['zm-est','zm-act','zm-qty'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',updateZairyoDiff); });
+
+// ===== GAICHUU =====
+function addGaichuu(){ const kojiId=document.getElementById('gm-koji').value; const company=document.getElementById('gm-company').value.trim(); if(!kojiId){alert('工事を選択');return;} if(!company){alert('業者名を入力');return;} const g={id:uid(),kojiId,company,type:document.getElementById('gm-type').value,work:document.getElementById('gm-work').value.trim(),contract:parseFloat(document.getElementById('gm-contract').value)||0,payDate:document.getElementById('gm-paydate').value,paid:document.getElementById('gm-paid').value==='true'}; D.gaichuu.push(g); save(); renderAll(); ['gm-company','gm-work','gm-contract'].forEach(id=>document.getElementById(id).value=''); }
+function openEditGaichuu(id){ syncSelects(); const g=D.gaichuu.find(g=>g.id===id); if(!g) return; document.getElementById('ge-id').value=g.id; document.getElementById('ge-koji').value=g.kojiId; document.getElementById('ge-company').value=g.company; document.getElementById('ge-type').value=g.type; document.getElementById('ge-work').value=g.work; document.getElementById('ge-contract').value=g.contract; document.getElementById('ge-paydate').value=g.payDate||''; document.getElementById('ge-paid').value=String(g.paid); openModal('gaichuuEditModal'); }
+function saveGaichuuEdit(){ const id=document.getElementById('ge-id').value; const u={id,kojiId:document.getElementById('ge-koji').value,company:document.getElementById('ge-company').value.trim(),type:document.getElementById('ge-type').value,work:document.getElementById('ge-work').value.trim(),contract:parseFloat(document.getElementById('ge-contract').value)||0,payDate:document.getElementById('ge-paydate').value,paid:document.getElementById('ge-paid').value==='true'}; D.gaichuu=D.gaichuu.map(g=>g.id===id?u:g); save(); closeModal('gaichuuEditModal'); renderAll(); }
+function delGaichuu(id){ D.gaichuu=D.gaichuu.filter(g=>g.id!==id); save(); renderAll(); }
+
+// ===== UI =====
+function switchTab(name){ const names=['dashboard','koji','nippo','zairyo','gaichuu','howto']; document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name)); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); }));
+
+// 日報プレビュー
+function updatePreview(){
+  const r=parseFloat(document.getElementById('np-rate').value)||0;
+  const s=document.getElementById('np-start').value;
+  const e=document.getElementById('np-end').value;
+  const b=parseInt(document.getElementById('np-break').value)||60;
+  const k=document.getElementById('np-kubun').value;
+  const d=calcDetail(r,s,e,b,k);
+  document.getElementById('pv-jikan').textContent=d.wH.toFixed(1)+'h';
+  document.getElementById('pv-ot').textContent=d.otH.toFixed(1)+'h';
+  document.getElementById('pv-night').textContent=d.nightH.toFixed(2)+'h';
+  document.getElementById('pv-base').textContent=yen(d.base);
+  document.getElementById('pv-ot-pay').textContent=yen(d.otPay);
+  document.getElementById('pv-ot50').textContent=yen(d.ot50);
+  document.getElementById('pv-night-pay').textContent=yen(d.nightPay);
+  document.getElementById('pv-total').textContent=yen(d.total);
+}
+['np-rate','np-start','np-end','np-break'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',updatePreview); });
+document.getElementById('np-kubun').addEventListener('change',updatePreview);
+
+// ===== CSV / JSON =====
+function exportCSV(){
+  let csv='建設原価管理システム - © 2025 AIおきなわ - 出力日:'+today()+'\n\n';
+  csv+='=== 工事台帳 ===\n工事番号,工事名,発注者,着工日,竣工予定,受注額,実行予算,原価発生,粗利,粗利率,ステータス\n';
+  D.koji.forEach(k=>{ const c=kojiCost(k.id),p=k.juchu-c.total,r=k.juchu>0?(p/k.juchu*100).toFixed(1):'0.0'; csv+=`"${k.kojiId||''}","${k.name}","${k.client||''}","${k.start||''}","${k.end||''}",${k.juchu},${k.yosan},${Math.round(c.total)},${Math.round(p)},${r}%,"${k.status}"\n`; });
+  csv+='\n=== 日報 ===\n日付,工事名,作業者,職種,勤務区分,実働時間,時給,労務費,作業内容\n';
+  D.nippo.forEach(n=>{ csv+=`"${n.date}","${kName(n.kojiId)}","${n.worker}","${n.shokushu}","${n.kubun||'平日'}","${(n.workH||0).toFixed(1)}",${n.rate},${Math.round(n.cost)},"${n.work||''}"\n`; });
+  csv+='\n=== 資材台帳 ===\n工事名,資材名,単位,数量,見積単価,発注単価,差額,発注日\n';
+  D.zairyo.forEach(z=>{ const d=(z.actPrice-z.estPrice)*z.qty; csv+=`"${kName(z.kojiId)}","${z.name}","${z.unit}",${z.qty},${z.estPrice},${z.actPrice},${Math.round(d)},"${z.orderDate||''}"\n`; });
+  csv+='\n=== 外注台帳 ===\n工事名,業者名,種別,作業内容,契約額,支払予定日,支払状況\n';
+  D.gaichuu.forEach(g=>{ csv+=`"${kName(g.kojiId)}","${g.company}","${g.type}","${g.work}",${g.contract},"${g.payDate||''}","${g.paid?'支払済':'未払い'}"\n`; });
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='原価管理_'+today()+'.csv'; a.click();
+}
+function exportJSON(){ const blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='原価管理バックアップ_'+today()+'.json'; a.click(); }
+function importJSON(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ try{ const p=JSON.parse(ev.target.result); if(!p.koji||!p.nippo||!p.zairyo||!p.gaichuu) throw 0; if(!confirm('現在のデータをバックアップファイルで上書きします。よろしいですか？')) return; D=p; save(); renderAll(); alert('データを復元しました。'); }catch{ alert('ファイルの読み込みに失敗しました。'); } }; r.readAsText(f); e.target.value=''; }
+
+// ===== INIT =====
+document.getElementById('todayBadge').textContent=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
+document.getElementById('np-date').value=today();
+document.getElementById('gm-paydate').value=today();
+updatePreview();
+
+function loadSample(){
+  D.koji=[
+    {id:'k1',kojiId:'2024-001',name:'南風原町 RC造住宅新築工事',client:'山田建設',juchu:12000000,yosan:9800000,start:'2024-10-01',end:'2025-03-31',status:'active'},
+    {id:'k2',kojiId:'2024-002',name:'那覇市 店舗改装工事',client:'沖縄商事',juchu:3500000,yosan:2900000,start:'2024-11-15',end:'2025-01-31',status:'warning'},
+    {id:'k3',kojiId:'2024-003',name:'浦添市 道路舗装補修',client:'浦添市役所',juchu:8000000,yosan:6500000,start:'2024-09-01',end:'2025-02-28',status:'active'},
+  ];
+  D.nippo=[
+    {id:'n1',kojiId:'k1',date:'2025-01-15',worker:'仲村 守',shokushu:'現場監督',kubun:'平日',rate:4000,startTime:'08:00',endTime:'18:00',breakMin:60,workH:9,work:'基礎配筋確認',note:''},
+    {id:'n2',kojiId:'k1',date:'2025-01-15',worker:'金城 勝',shokushu:'鉄筋工',kubun:'平日',rate:3200,startTime:'08:00',endTime:'17:00',breakMin:60,workH:8,work:'D13鉄筋組み立て',note:''},
+    {id:'n3',kojiId:'k2',date:'2025-01-14',worker:'比嘉 恵',shokushu:'大工',kubun:'法定休日',rate:3500,startTime:'08:00',endTime:'17:00',breakMin:60,workH:8,work:'間仕切り壁下地',note:''},
+    {id:'n4',kojiId:'k3',date:'2025-01-13',worker:'新垣 誠',shokushu:'重機オペレーター',kubun:'平日',rate:4500,startTime:'08:00',endTime:'17:00',breakMin:60,workH:8,work:'路盤材敷均し',note:''},
+    {id:'n5',kojiId:'k2',date:'2025-01-12',worker:'平良 学',shokushu:'左官工',kubun:'平日',rate:3800,startTime:'08:00',endTime:'19:00',breakMin:60,workH:10,work:'壁塗装下地',note:''},
+  ];
+  D.nippo.forEach(n=>{ n.cost=calcCost(n); });
+  D.zairyo=[
+    {id:'z1',kojiId:'k1',name:'生コンクリート 21N',unit:'m³',qty:50,estPrice:15000,actPrice:16800},
+    {id:'z2',kojiId:'k1',name:'異形棒鋼 D13',unit:'t',qty:3.5,estPrice:110000,actPrice:108000},
+    {id:'z3',kojiId:'k2',name:'石膏ボード 12.5mm',unit:'枚',qty:200,estPrice:450,actPrice:480},
+    {id:'z4',kojiId:'k3',name:'路盤材 RC-40',unit:'t',qty:120,estPrice:3500,actPrice:3500},
+  ];
+  D.gaichuu=[
+    {id:'g1',kojiId:'k1',company:'沖縄型枠工業',type:'専門工事業者',work:'型枠工事一式',contract:850000,payDate:'2025-02-28',paid:false},
+    {id:'g2',kojiId:'k2',company:'田中 一郎（一人親方）',type:'一人親方',work:'電気配線工事',contract:320000,payDate:'2025-02-15',paid:true},
+    {id:'g3',kojiId:'k3',company:'南城舗装',type:'専門工事業者',work:'アスファルト舗装',contract:1200000,payDate:'2025-03-31',paid:false},
+  ];
+  save(); renderAll();
+}
+if(!D.koji.length) { loadSample(); document.getElementById('sample-banner').style.display='block'; } else renderAll();
+</script>
+</body>
+</html>
